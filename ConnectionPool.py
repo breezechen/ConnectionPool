@@ -28,14 +28,13 @@ class DatabaseConnectionPool(object):
         pool = self.pool
         if self.size >= self.maxsize or pool.qsize():
             return pool.get()
-        else:
-            self.size += 1
-            try:
-                new_item = self.create_connection()
-            except:
-                self.size -= 1
-                raise
-            return new_item
+        self.size += 1
+        try:
+            new_item = self.create_connection()
+        except:
+            self.size -= 1
+            raise
+        return new_item
 
     def put(self, item):
         self.pool.put(item)
@@ -43,10 +42,8 @@ class DatabaseConnectionPool(object):
     def closeall(self):
         while not self.pool.empty():
             conn = self.pool.get_nowait()
-            try:
+            with contextlib.suppress(Exception):
                 conn.close()
-            except Exception:
-                pass
 
     @contextlib.contextmanager
     def connection(self, isolation_level=None):
@@ -111,8 +108,7 @@ class DatabaseConnectionPool(object):
                 items = cursor.fetchmany()
                 if not items:
                     break
-                for item in items:
-                    yield item
+                yield from items
 
 
 class ODBCConnectionPool(DatabaseConnectionPool):
